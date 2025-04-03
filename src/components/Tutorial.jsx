@@ -4,7 +4,7 @@ const Tutorial = ({ toggleTutorial, colors, index }) => {
     return (
         <div className='bg-black/50 w-full h-screen absolute flex items-center justify-center z-50'>
             <div className='bg-white rounded-xl drop-shadow-md w-[400px] p-6 flex flex-col gap-2 items-center border-2 border-solid border-red-500'>
-                <h3 className='font-bold w-full underline decoration-rose-400'>Welcome to Move It! 🪩🕺</h3>
+                <h3 className='font-bold w-full underline decoration-rose-400'>Welcome to Tune It! 🪩🕺</h3>
 
                 <img src={myImage} className='h-30 object-contain'/>
 
