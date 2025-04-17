@@ -60,7 +60,7 @@ function App() {
             {!test && <TestCamera toggle={toggleTest} />}
 
             <div className='h-20'>
-                <h1 className={`text-white text-center ${sizes[index % sizes.length]} font-bold p-4 transition-all`}>{emojis[(index * 23) % emojis.length]} Tune It! {emojis[(index * 17) % emojis.length]}</h1>
+                <h1 className={`text-white text-center ${sizes[index % sizes.length]} font-bold p-4 transition-all`}>{emojis[(index * 23) % emojis.length]} Move It! {emojis[(index * 17) % emojis.length]}</h1>
             </div>
 
             {/* Navbar */}
