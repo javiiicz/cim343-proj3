@@ -1,12 +1,87 @@
-import placeholder from "../assets/Portrait_Placeholder.png";
 import { useState, useRef, useEffect } from "react";
 import p5 from 'p5';
+import PoseSelector, { poseKeypoints, calculatePoseSimilarity } from "./PoseSelector";
 
-export default function Game({ colors, index }) {
+const GameState = {
+    IDLE: 'idle',
+    COUNTDOWN: 'countdown',
+    SHOWING_POSE: 'showing_pose',
+    SCORING: 'scoring'
+};
+
+const TIMEOUT_MULTIPLIER = {
+    [GameState.COUNTDOWN]: 1,
+    [GameState.SHOWING_POSE]: 4,
+    [GameState.SCORING]: 1,
+};
+
+export default function Game({ colors}) {
     const [started, setStarted] = useState(false);
     const gameCanvasRef = useRef(null);
-    const [keypoints, setKeypoints] = useState([]);
     const [points, setPoints] = useState(0);
+    const [keypoints, setKeypoints] = useState([]);
+    const [countdown, setCountdown] = useState(3);
+    const [showPose, setShowPose] = useState(false);
+    const [round, setRound] = useState(1);
+    const [maxRounds, setMaxRounds] = useState(2);
+    const [gameState, setGameState] = useState(GameState.IDLE);
+    const [gameOver, setGameOver] = useState(false);
+    const [index, setIndex] = useState(0);
+    const [currentPoseScore, setCurrentPoseScore] = useState(0);
+    const SPEED = 750;
+
+    const start = () => {
+        setStarted(true);
+        setPoints(0);
+        setRound(1);
+        setGameOver(false);
+        setShowPose(false);
+        setCountdown(3);
+        setGameState(GameState.COUNTDOWN);
+    };
+
+    useEffect(() => {
+        if (!started) return;
+        console.log(gameState);
+
+        const timer = setTimeout(() => {
+            switch (gameState) {
+                case GameState.COUNTDOWN:
+                    if (countdown > 1) {
+                        setCountdown(c => c - 1);
+                    } else {
+                        setCountdown(0);
+                        setShowPose(true);
+                        setGameState(GameState.SHOWING_POSE);
+                    }
+                    break;
+
+                case GameState.SHOWING_POSE:
+                    setShowPose(false);
+                    setGameState(GameState.SCORING);
+                    break;
+
+                case GameState.SCORING:
+                    // Calculate score based on pose similarity
+                    const poseScore = calculatePoseSimilarity(poseKeypoints[index], keypoints);
+                    setCurrentPoseScore(poseScore);
+                    setPoints(prev => prev + poseScore);
+                    
+                    if (round < maxRounds) {
+                        setRound(prev => prev + 1);
+                        setCountdown(3);
+                        setGameState(GameState.COUNTDOWN);
+                    } else {
+                        setGameOver(true);
+                        setStarted(false);
+                        setGameState(GameState.IDLE);
+                    }
+                    break;
+            }
+        }, TIMEOUT_MULTIPLIER[gameState] * SPEED || SPEED);
+
+        return () => clearTimeout(timer);
+    }, [gameState, started, countdown, round, maxRounds]);
 
     useEffect(() => {
         const sketch = (p) => {
@@ -116,25 +191,48 @@ export default function Game({ colors, index }) {
         };
     }, []);
 
-    const start = () => {
-        setStarted(true);
-    }
 
     return (
-        <div className="bg-gray-200 rounded-3xl p-4">
-            <p className="p-2"><span className="font-semibold">Score:</span> {points}</p>
+        <div className="bg-gray-200 rounded-3xl p-4 m-10 w-[1200px]">
+            <p className="p-2">
+                <span className="font-semibold">Score:</span> {points}
+                {gameState === GameState.SCORING && (
+                    <span className="ml-2 text-gray-500">
+                        (Last pose similarity: {currentPoseScore}%)
+                    </span>
+                )}
+            </p>
             <div className='grid grid-cols-2 gap-4'>
-                <div className='rounded-2xl border-2 overflow-hidden'>
-                    <img src={placeholder} className='w-full' />
+                <div className='rounded-2xl border-2 overflow-hidden aspect-[4/3]'>
+                    <PoseSelector index={index} showPose={showPose} countdown={countdown} started={started} />
                 </div>
-                <div className='w-full h-full rounded-2xl border-2 overflow-hidden' ref={gameCanvasRef}>
+                <div className='w-full rounded-2xl border-2 overflow-hidden aspect-[4/3]' ref={gameCanvasRef}>
                 </div>
             </div>
             <div className="w-full flex flex-col items-center pt-4">
-                <div onClick={start} className={`flex items-center justify-center overflow-hidden h-10 w-[50%] cursor-pointer rounded-2xl ${colors[index % colors.length]}`}>
-                    <a className='text-center text-sm text-white font-bold'>Start</a>
-                </div>
+                {!started && !gameOver &&
+                    <div onClick={start} className={`flex items-center justify-center overflow-hidden h-10 w-[50%] cursor-pointer rounded-2xl ${colors[index % colors.length]}`}>
+                        <a className='text-center text-sm text-white font-bold'>Start</a>
+                    </div>
+                }
+                {!started && gameOver &&
+                    <div className="flex flex-col items-center">
+                        <div className="text-center font-bold text-3xl py-4">
+                            Game Over! Final Score: {points}
+                        </div>
+                        <div onClick={start} className={`flex items-center justify-center overflow-hidden h-10 w-[200px] cursor-pointer rounded-2xl ${colors[index % colors.length]}`}>
+                            <a className='text-center text-sm text-white font-bold'>Play Again</a>
+                        </div>
+                    </div>
+                }
+                {started && 
+                    <div className="text-center font-bold text-3xl py-4">
+                        {countdown > 0 ? countdown : showPose ? "Replicate the pose!" : "Scoring..."}
+                    </div>
+                }
             </div>
+
+
         </div>
     )
 }

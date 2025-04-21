@@ -72,7 +72,7 @@ function App() {
 
             {/* Main Window */}
             {!score ? (
-                <Game colors={colors} index={index}/>
+                <Game colors={colors}/>
             ) : (
                 <div className=' bg-gray-200 rounded-3xl p-4 gap-4'>
                     Scoreboard
