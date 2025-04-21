@@ -2,6 +2,10 @@ import { CodeSquare } from "lucide-react";
 import placeholder from "../assets/Portrait_Placeholder.png";
 import pose1 from "../assets/poses/pose1.png";
 import pose2 from "../assets/poses/pose2.png";
+import pose3 from "../assets/poses/pose3.png";
+import pose4 from "../assets/poses/pose4.png";
+import pose5 from "../assets/poses/pose5.png";
+import pose6 from "../assets/poses/pose6.png";
 import { useEffect, useRef, useState } from 'react';
 
 // Reference keypoints for each pose
@@ -60,7 +64,7 @@ export const calculatePoseSimilarity = (referenceKeypoints, userKeypoints) => {
                 Math.pow(refKp.y - userKp.y, 2)
             );
          
-            const MAX_DISTANCE = 100;
+            const MAX_DISTANCE = 200;
             const PERFECT_DISTANCE = 10;
             
             let pointScore;
@@ -85,7 +89,7 @@ export const calculatePoseSimilarity = (referenceKeypoints, userKeypoints) => {
 };
 
 export default function PoseSelector({index, showPose, countdown, started}) {
-    const images = [pose1, pose2];
+    const images = [pose1, pose2, pose3, pose4, pose5, pose6];
     const debugCanvasRef = useRef(null);
     const [imageSize, setImageSize] = useState(null);
     const [currentImage, setCurrentImage] = useState(null);

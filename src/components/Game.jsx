@@ -15,7 +15,7 @@ const TIMEOUT_MULTIPLIER = {
     [GameState.SCORING]: 1,
 };
 
-export default function Game({ colors}) {
+export default function Game({colors}) {
     const [started, setStarted] = useState(false);
     const gameCanvasRef = useRef(null);
     const [points, setPoints] = useState(0);
@@ -23,14 +23,22 @@ export default function Game({ colors}) {
     const [countdown, setCountdown] = useState(3);
     const [showPose, setShowPose] = useState(false);
     const [round, setRound] = useState(1);
-    const [maxRounds, setMaxRounds] = useState(2);
+    const [maxRounds, setMaxRounds] = useState(6);
     const [gameState, setGameState] = useState(GameState.IDLE);
     const [gameOver, setGameOver] = useState(false);
     const [index, setIndex] = useState(0);
+    const [shuffledIndices, setShuffledIndices] = useState([]);
     const [currentPoseScore, setCurrentPoseScore] = useState(0);
     const SPEED = 750;
 
     const start = () => {
+        // Create and shuffle array of indices
+        const indices = Array.from({ length: maxRounds }, (_, i) => i);
+        for (let i = indices.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [indices[i], indices[j]] = [indices[j], indices[i]];
+        }
+        setShuffledIndices(indices);
         setStarted(true);
         setPoints(0);
         setRound(1);
@@ -38,6 +46,7 @@ export default function Game({ colors}) {
         setShowPose(false);
         setCountdown(3);
         setGameState(GameState.COUNTDOWN);
+        setIndex(indices[0]); // Set initial index from shuffled array
     };
 
     useEffect(() => {
@@ -69,6 +78,7 @@ export default function Game({ colors}) {
                     
                     if (round < maxRounds) {
                         setRound(prev => prev + 1);
+                        setIndex(shuffledIndices[round]); // Use next index from shuffled array
                         setCountdown(3);
                         setGameState(GameState.COUNTDOWN);
                     } else {
@@ -151,6 +161,14 @@ export default function Game({ colors}) {
                     offsetX = 0;
                     offsetY = -(drawHeight - canvasHeight) / 2;
                 }
+                
+                // Save the current transformation state
+                p.push();
+                
+                // Translate to the right edge and flip horizontally
+                p.translate(p.width, 0);
+                p.scale(-1, 1);
+                
                 p.image(video, offsetX, offsetY, drawWidth, drawHeight);
 
                 for (let i = 0; i < poses.length; i++) {
@@ -181,6 +199,9 @@ export default function Game({ colors}) {
                         }
                     }
                 }
+                
+                // Restore the transformation state
+                p.pop();
             };
         };
 
