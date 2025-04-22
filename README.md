@@ -2,6 +2,8 @@
 
 A computer vision-based pose estimation game that challenges users to replicate predefined poses with real-time feedback and scoring.
 
+Play it [at this link](https://javiiicz.github.io/cim343-proj3/).
+
 ## Overview
 
 Move It! leverages machine learning to create an interactive experience that combines computer vision and human-computer interaction. The application uses ml5.js for real-time pose detection and tracking, providing users with immediate feedback on their pose accuracy.
