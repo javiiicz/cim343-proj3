@@ -1,4 +1,3 @@
-import { CodeSquare } from "lucide-react";
 import placeholder from "../assets/Portrait_Placeholder.png";
 import pose1 from "../assets/poses/pose1.png";
 import pose2 from "../assets/poses/pose2.png";
@@ -6,6 +5,10 @@ import pose3 from "../assets/poses/pose3.png";
 import pose4 from "../assets/poses/pose4.png";
 import pose5 from "../assets/poses/pose5.png";
 import pose6 from "../assets/poses/pose6.png";
+import pose7 from "../assets/poses/pose7.png";
+import pose8 from "../assets/poses/pose8.png";
+import pose9 from "../assets/poses/pose9.png";
+
 import { useEffect, useRef, useState } from 'react';
 
 // Reference keypoints for each pose
@@ -89,11 +92,13 @@ export const calculatePoseSimilarity = (referenceKeypoints, userKeypoints) => {
 };
 
 export default function PoseSelector({index, showPose, countdown, started}) {
-    const images = [pose1, pose2, pose3, pose4, pose5, pose6];
+    const images = [pose1, pose2, pose3, pose4, pose5, pose6, pose7, pose8, pose9];
     const debugCanvasRef = useRef(null);
     const [imageSize, setImageSize] = useState(null);
     const [currentImage, setCurrentImage] = useState(null);
     const containerRef = useRef(null);
+    const poseNetRef = useRef(null);
+    const offscreenCanvasRef = useRef(null);
 
     // Effect to handle image loading and canvas setup
     useEffect(() => {
@@ -133,9 +138,30 @@ export default function PoseSelector({index, showPose, countdown, started}) {
     useEffect(() => {
         const loadPoseKeypoints = async () => {
             console.log('Starting pose keypoint detection');
-            const canvas = document.createElement('canvas');
+            
+            // Create a single offscreen canvas for processing
+            if (!offscreenCanvasRef.current) {
+                offscreenCanvasRef.current = document.createElement('canvas');
+            }
+            const canvas = offscreenCanvasRef.current;
             const ctx = canvas.getContext('2d');
 
+            // Create a single model instance
+            if (!poseNetRef.current && window.ml5) {
+                poseNetRef.current = await new Promise((resolve) => {
+                    const poseNet = window.ml5.bodyPose(canvas, () => {
+                        console.log("Model loaded");
+                        resolve(poseNet);
+                    });
+                });
+            }
+
+            if (!poseNetRef.current) {
+                console.error("Failed to load ml5.js or create model");
+                return;
+            }
+
+            // Process each image with the same model instance
             for (let i = 0; i < images.length; i++) {
                 const img = new Image();
                 img.src = images[i];
@@ -146,35 +172,45 @@ export default function PoseSelector({index, showPose, countdown, started}) {
                         canvas.height = img.height;
                         ctx.drawImage(img, 0, 0);
                         
-                        if (window.ml5) {
-                            const poseNet = window.ml5.bodyPose(canvas, () => {
-                                console.log("Model loaded for reference pose", i);
-                                poseNet.detect(canvas, (results) => {
-                                    console.log(`Got detection results for pose ${i}:`, results);
-                                    if (results && results.length > 0) {
-                                        const pose = results[0];
-                                        // Store keypoints in pixel coordinates
-                                        poseKeypoints[i] = pose.keypoints.map(kp => ({
-                                            name: kp.name,
-                                            x: kp.x,
-                                            y: kp.y,
-                                            confidence: kp.confidence
-                                        }));
-                                    }
-                                    poseNet.detectStop();
-                                    resolve();
+                        try {
+                            const results = await new Promise((resolveDetect) => {
+                                poseNetRef.current.detect(canvas, (results) => {
+                                    resolveDetect(results);
                                 });
                             });
-                        } else {
-                            console.error("ml5.js is not loaded");
-                            resolve();
+                            
+                            console.log(`Got detection results for pose ${i}:`, results);
+                            if (results && results.length > 0) {
+                                const pose = results[0];
+                                poseKeypoints[i] = pose.keypoints.map(kp => ({
+                                    name: kp.name,
+                                    x: kp.x,
+                                    y: kp.y,
+                                    confidence: kp.confidence
+                                }));
+                            }
+                        } catch (error) {
+                            console.error(`Error processing pose ${i}:`, error);
                         }
+                        resolve();
                     };
                 });
+            }
+
+            // Clean up
+            if (poseNetRef.current) {
+                poseNetRef.current.detectStop();
             }
         };
 
         loadPoseKeypoints();
+
+        // Cleanup function
+        return () => {
+            if (poseNetRef.current) {
+                poseNetRef.current.detectStop();
+            }
+        };
     }, []);
 
     if (!started) {

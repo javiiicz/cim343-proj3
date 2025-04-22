@@ -1,6 +1,10 @@
 import { useState, useRef, useEffect } from "react";
 import p5 from 'p5';
 import PoseSelector, { poseKeypoints, calculatePoseSimilarity } from "./PoseSelector";
+import tickSound from "../assets/tick.mp3";
+import orchHitSound from "../assets/OrchHit.mp3";
+import superbSound from "../assets/superb.mp3";
+import ScoreSubmission from "./ScoreSubmission";
 
 const GameState = {
     IDLE: 'idle',
@@ -15,23 +19,35 @@ const TIMEOUT_MULTIPLIER = {
     [GameState.SCORING]: 1,
 };
 
-export default function Game({colors}) {
+export default function Game({colors, audioRef, colorIndex}) {
     const [started, setStarted] = useState(false);
     const gameCanvasRef = useRef(null);
+    const tickAudioRef = useRef(new Audio(tickSound));
+    const orchHitAudioRef = useRef(new Audio(orchHitSound));
+    const superbAudioRef = useRef(new Audio(superbSound));
+    const stateChangeCountRef = useRef(0);
     const [points, setPoints] = useState(0);
     const [keypoints, setKeypoints] = useState([]);
     const [countdown, setCountdown] = useState(3);
     const [showPose, setShowPose] = useState(false);
     const [round, setRound] = useState(1);
-    const [maxRounds, setMaxRounds] = useState(6);
+    const maxRounds = 9;
     const [gameState, setGameState] = useState(GameState.IDLE);
     const [gameOver, setGameOver] = useState(false);
     const [index, setIndex] = useState(0);
     const [shuffledIndices, setShuffledIndices] = useState([]);
     const [currentPoseScore, setCurrentPoseScore] = useState(0);
-    const SPEED = 750;
+    const SPEED = 600;
+    const [showScoreSubmission, setShowScoreSubmission] = useState(false);
 
     const start = () => {
+        if (audioRef && audioRef.current) {
+            audioRef.current.pause();
+        }
+        // Stop superb music when starting new game
+        superbAudioRef.current.pause();
+        superbAudioRef.current.currentTime = 0;
+        stateChangeCountRef.current = 0;
         // Create and shuffle array of indices
         const indices = Array.from({ length: maxRounds }, (_, i) => i);
         for (let i = indices.length - 1; i > 0; i--) {
@@ -52,6 +68,39 @@ export default function Game({colors}) {
     useEffect(() => {
         if (!started) return;
         console.log(gameState);
+
+        const playStepSound = () => {
+            if (stateChangeCountRef.current % 4 === 3) {
+                orchHitAudioRef.current.currentTime = 0;
+                orchHitAudioRef.current.play();
+            } else {
+                tickAudioRef.current.currentTime = 0;
+                tickAudioRef.current.play();
+            }
+            stateChangeCountRef.current += 1;
+        };
+
+        // For SHOWING_POSE state, we need to play sounds for each beat
+        if (gameState === GameState.SHOWING_POSE) {
+            playStepSound(); // First beat
+            const beatInterval = SPEED;
+            const additionalBeats = [1, 2, 3];
+            
+            additionalBeats.forEach((beat) => {
+                setTimeout(() => {
+                    if (stateChangeCountRef.current % 4 === 3) {
+                        orchHitAudioRef.current.currentTime = 0;
+                        orchHitAudioRef.current.play();
+                    } else {
+                        tickAudioRef.current.currentTime = 0;
+                        tickAudioRef.current.play();
+                    }
+                    stateChangeCountRef.current += 1;
+                }, beat * beatInterval);
+            });
+        } else {
+            playStepSound();
+        }
 
         const timer = setTimeout(() => {
             switch (gameState) {
@@ -85,6 +134,9 @@ export default function Game({colors}) {
                         setGameOver(true);
                         setStarted(false);
                         setGameState(GameState.IDLE);
+                        // Play superb music when game ends
+                        superbAudioRef.current.currentTime = 0;
+                        superbAudioRef.current.play();
                     }
                     break;
             }
@@ -215,6 +267,12 @@ export default function Game({colors}) {
 
     return (
         <div className="bg-gray-200 rounded-3xl p-4 m-10 w-[1200px]">
+            {showScoreSubmission && (
+                <ScoreSubmission 
+                    score={points} 
+                    onClose={() => setShowScoreSubmission(false)} 
+                />
+            )}
             <p className="p-2">
                 <span className="font-semibold">Score:</span> {points}
                 {gameState === GameState.SCORING && (
@@ -225,14 +283,21 @@ export default function Game({colors}) {
             </p>
             <div className='grid grid-cols-2 gap-4'>
                 <div className='rounded-2xl border-2 overflow-hidden aspect-[4/3]'>
-                    <PoseSelector index={index} showPose={showPose} countdown={countdown} started={started} />
+                    <PoseSelector 
+                        index={index} 
+                        showPose={showPose} 
+                        countdown={countdown} 
+                        started={started}
+                        currentScore={currentPoseScore}
+                        gameState={gameState}
+                    />
                 </div>
                 <div className='w-full rounded-2xl border-2 overflow-hidden aspect-[4/3]' ref={gameCanvasRef}>
                 </div>
             </div>
             <div className="w-full flex flex-col items-center pt-4">
                 {!started && !gameOver &&
-                    <div onClick={start} className={`flex items-center justify-center overflow-hidden h-10 w-[50%] cursor-pointer rounded-2xl ${colors[index % colors.length]}`}>
+                    <div onClick={start} className={`flex items-center justify-center overflow-hidden h-10 w-[50%] cursor-pointer rounded-2xl ${colors[colorIndex % colors.length]}`}>
                         <a className='text-center text-sm text-white font-bold'>Start</a>
                     </div>
                 }
@@ -241,8 +306,13 @@ export default function Game({colors}) {
                         <div className="text-center font-bold text-3xl py-4">
                             Game Over! Final Score: {points}
                         </div>
-                        <div onClick={start} className={`flex items-center justify-center overflow-hidden h-10 w-[200px] cursor-pointer rounded-2xl ${colors[index % colors.length]}`}>
-                            <a className='text-center text-sm text-white font-bold'>Play Again</a>
+                        <div className="flex gap-4">
+                            <div onClick={() => setShowScoreSubmission(true)} className={`flex items-center justify-center overflow-hidden h-10 w-[200px] cursor-pointer rounded-2xl ${colors[colorIndex % colors.length]}`}>
+                                <a className='text-center text-sm text-white font-bold'>Submit Score</a>
+                            </div>
+                            <div onClick={start} className={`flex items-center justify-center overflow-hidden h-10 w-[200px] cursor-pointer rounded-2xl ${colors[colorIndex % colors.length]}`}>
+                                <a className='text-center text-sm text-white font-bold'>Play Again</a>
+                            </div>
                         </div>
                     </div>
                 }
